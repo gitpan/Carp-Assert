@@ -45,4 +45,3 @@ print "ok ".$t_num++."\n";
 eval { shouldn't('up', 'up') };
 print "not " if $@ !~ /^Assertion \(.*\) failed/i;
 print "ok ".$t_num++."\n";
-
