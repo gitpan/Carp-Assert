@@ -1,6 +1,6 @@
 package Carp::Assert;
 
-require 5;
+require 5.004;
 
 use strict qw(subs vars);
 use Exporter;
@@ -8,14 +8,14 @@ use Exporter;
 use vars qw(@ISA $VERSION %EXPORT_TAGS);
 
 BEGIN {
-    $VERSION = '0.13';
+    $VERSION = '0.15';
 
     @ISA = qw(Exporter);
 
     %EXPORT_TAGS = (
-                    NDEBUG => [qw(assert should shouldnt DEBUG)],
-                    DEBUG  => [qw(assert should shouldnt DEBUG)],
+                    NDEBUG => [qw(assert affirm should shouldnt DEBUG)],
                    );
+    $EXPORT_TAGS{DEBUG} = $EXPORT_TAGS{NDEBUG};
     Exporter::export_tags(qw(NDEBUG DEBUG));
 }
 
@@ -26,6 +26,7 @@ sub NDEBUG      ()  { 0 }       # CONSTANT
 # Export the proper DEBUG flag according to if :NDEBUG is set.
 # Also export noop versions of our routines if NDEBUG
 sub noop { undef }
+sub noop_affirm (&;$) { undef };
 
 sub import {
     my $env_ndebug = exists $ENV{PERL_NDEBUG} ? $ENV{PERL_NDEBUG}
@@ -33,7 +34,11 @@ sub import {
     if( grep(/^:NDEBUG$/, @_) or $env_ndebug ) {
         my $caller = caller;
         foreach my $func (grep !/^DEBUG$/, @{$EXPORT_TAGS{NDEBUG}}) {
-            *{$caller.'::'.$func} = \&noop;
+            if( $func eq 'affirm' ) {
+                *{$caller.'::'.$func} = \&noop_affirm;
+            } else {
+                *{$caller.'::'.$func} = \&noop;
+            }
         }
         *{$caller.'::DEBUG'} = \&NDEBUG;
     }
@@ -49,50 +54,18 @@ sub unimport {
     goto &import;
 }
 
-sub assert ($) {
-    unless($_[0]) {
-	require Carp;
-	&Carp::confess("Assert failed!\n");
-    }
-    return undef; 
-}
 
-sub should ($$) {
-    unless($_[0] eq $_[1]) {
-        require Carp;
-        &Carp::confess("Assert failed:  '$_[0]' should be '$_[1]'!\n");
-    }
-    return undef;
-}
-
-sub shouldnt ($$) {
-    unless($_[0] ne $_[1]) {
-        require Carp;
-        &Carp::confess("Assert failed:  '$_[0]' shouldn't be!\n");
-    }
-    return undef;
-}
-
-# Sorry, I couldn't resist.
-sub shouldn't ($$) {     # emacs cperl-mode madness #' sub {
-    my $env_ndebug = exists $ENV{PERL_NDEBUG} ? $ENV{PERL_NDEBUG}
-                                              : $ENV{NDEBUG};
-    if( $env_ndebug ) {
-        return undef;
-    }
-    else {
-        shouldnt($_[0], $_[1]);
-    }
+# Can't call confess() here or the stack trace will be wrong.
+sub _fail_msg {
+    my($name) = shift;
+    my $msg = 'Assertion';
+    $msg   .= " ($name)" if defined $name;
+    $msg   .= " failed!\n";
+    return $msg;
 }
 
 
-return q|You don't just EAT the largest turnip in the world!|;
-#'#
-
-__END__
-=pod
-
-=head1 NAME 
+=head1 NAME
 
 Carp::Assert - executable comments
 
@@ -105,6 +78,12 @@ Carp::Assert - executable comments
 
     # Assert that the sun must rise in the next 24 hours.
     assert(($next_sunrise_time - time) < 24*60*60) if DEBUG;
+
+    # Assert that your customer's primary credit card is active
+    affirm {
+        my @cards = @{$customer->credit_cards};
+        $cards[0]->is_active;
+    };
 
 
     # Assertions are off.
@@ -119,6 +98,10 @@ Carp::Assert - executable comments
 
 
 =head1 DESCRIPTION
+
+=for testing
+use Carp::Assert;
+
 
     "We are ready for any unforseen event that may or may not 
     occur."
@@ -161,13 +144,13 @@ make sure what your code just did really did happen:
     @stuff = do_something(@stuff);
 
     # I should have some stuff.
-    assert(scalar(@stuff) > 0);
+    assert(@stuff > 0);
 
 The assertion makes sure you have some @stuff at the end.  Maybe the
 file was empty, maybe do_something() returned an empty list... either
 way, the assert() will give you a clue as to where the problem lies,
-rather than 50 lines down when you print out @stuff and discover it to
-be empty.
+rather than 50 lines down at when you wonder why your program isn't
+printing anything.
 
 Since assertions are designed for debugging and will remove themelves
 from production code, your assertions should be carefully crafted so
@@ -181,7 +164,7 @@ It sets an error flag which may then be used somewhere else in your
 program. When you shut off your assertions with the $DEBUG flag,
 $error will no longer be set.
 
-Here's another bad example:
+Here's another example of B<bad> use:
 
     assert($next_pres ne 'Dan Quayle' or goto Canada);  # Bad!
 
@@ -200,6 +183,10 @@ you'd replace the comment with an assertion which B<enforces> the comment.
     $life = begin_life();
     assert( $life =~ /!$/ );
 
+=for testing
+my $life = 'Whimper!';
+ok( eval { assert( $life =~ /!$/ ); 1 },   'life ends with a bang' );
+
 
 =head1 FUNCTIONS
 
@@ -207,27 +194,106 @@ you'd replace the comment with an assertion which B<enforces> the comment.
 
 =item B<assert>
 
-    assert(STATEMENT) if DEBUG;
+    assert(EXPR) if DEBUG;
+    assert(EXPR, $name) if DEBUG;
 
 assert's functionality is effected by compile time value of the DEBUG
-constant.  If DEBUG is true, assert will function as below.  If DEBUG
-is false the assert function will compile itself out of the program.
+constant, controlled by saying C<use Carp::Assert> or C<no
+Carp::Assert>.  In the former case, assert will function as below.
+Otherwise, the assert function will compile itself out of the program.
 See L<Debugging vs Production> for details.
+
+=for testing
+{
+  package Some::Other;
+  no Carp::Assert;
+  ::ok( eval { assert(0) if DEBUG; 1 } );
+}
 
 Give assert an expression, assert will Carp::confess() if that
 expression is false, otherwise it does nothing.  (DO NOT use the
 return value of assert for anything, I mean it... really!).
 
+=for testing
+ok( eval { assert(1); 1 } );
+ok( !eval { assert(0); 1 } );
+
 The error from assert will look something like this:
 
-    Assert failed
+    Assertion failed!
             Carp::Assert::assert(0) called at prog line 23
             main::foo called at prog line 50
+
+=for testing
+eval { assert(0) };
+like( $@, qr/^Assertion failed!/,       'error format' );
+like( $@, qr/Carp::Assert::assert\(0\) called at/,      '  with stack trace' );
 
 Indicating that in the file "prog" an assert failed inside the
 function main::foo() on line 23 and that foo() was in turn called from
 line 50 in the same file.
 
+If given a $name, assert() will incorporate this into your error message,
+giving users something of a better idea what's going on.
+
+    assert( Dogs->isa('People'), 'Dogs are people, too!' ) if DEBUG;
+    # Result - "Assertion (Dogs are people, too!) failed!"
+
+=for testing
+eval { assert( Dogs->isa('People'), 'Dogs are people, too!' ); };
+like( $@, qr/^Assertion \(Dogs are people, too!\) failed!/, 'names' );
+
+=cut
+
+sub assert ($;$) {
+    unless($_[0]) {
+        require Carp;
+        Carp::confess( _fail_msg($_[1]) );
+    }
+    return undef;
+}
+
+
+=item B<affirm>
+
+    affirm BLOCK if DEBUG;
+    affirm BLOCK $name if DEBUG;
+
+Very similar to assert(), but instead of taking just a simple
+expression it takes an entire block of code and evaluates it to make
+sure its true.  This can allow more complicated assertions than
+assert() can without letting the debugging code leak out into
+production and without having to smash together several
+statements into one.
+
+=also begin example
+
+    affirm {
+        my $customer = Customer->new($customerid);
+        my @cards = $customer->credit_cards;
+        grep { $_->is_active } @cards;
+    } "Our customer has an active credit card";
+
+=also end example
+
+affirm() also has the nice side effect that if you forgot the C<if DEBUG>
+suffix its arguments will not be evaluated at all.  This can be nice
+if you stick affirm()s with expensive checks into hot loops and other
+time-sensitive parts of your program.
+
+=cut
+
+sub affirm (&;$) {
+    unless( eval { &{$_[0]}; } ) {
+        my $name = $_[1];
+        if( !defined $name and eval { require B::Deparse } ) {
+            $name = B::Deparse->new->coderef2text($_[0]);
+        }
+        require Carp;
+        Carp::confess( _fail_msg($name) );
+    }
+    return undef;
+}
 
 =item B<should>
 
@@ -243,7 +309,7 @@ Due to Perl's lack of a good macro system, assert() can only report
 where something failed, but it can't report I<what> failed or I<how>.
 should() and shouldnt() can produce more informative error messages:
 
-    Assert failed:  'this' should be 'that'!
+    Assertion ('this' should be 'that'!) failed!
             Carp::Assert::should('this', 'that') called at moof line 29
             main::foo() called at moof line 58
 
@@ -259,6 +325,36 @@ except for the better error message.
 
 Currently, should() and shouldnt() can only do simple eq and ne tests
 (respectively).  Future versions may allow regexes.
+
+=cut
+
+sub should ($$) {
+    unless($_[0] eq $_[1]) {
+        require Carp;
+        &Carp::confess( _fail_msg("'$_[0]' should be '$_[1]'!") );
+    }
+    return undef;
+}
+
+sub shouldnt ($$) {
+    unless($_[0] ne $_[1]) {
+        require Carp;
+        &Carp::confess( _fail_msg("'$_[0]' shouldn't be that!") );
+    }
+    return undef;
+}
+
+# Sorry, I couldn't resist.
+sub shouldn't ($$) {     # emacs cperl-mode madness #' sub {
+    my $env_ndebug = exists $ENV{PERL_NDEBUG} ? $ENV{PERL_NDEBUG}
+                                              : $ENV{NDEBUG};
+    if( $env_ndebug ) {
+        return undef;
+    }
+    else {
+        shouldnt($_[0], $_[1]);
+    }
+}
 
 
 =head1 Debugging vs Production
@@ -279,13 +375,26 @@ DEBUG is a constant set to 0.  Adding the 'if DEBUG' condition on your
 assert() call gives perl the cue to go ahead and remove assert() call from
 your program entirely, since the if conditional will always be false.
 
-(This is the best I can do without requiring Filter::cpp)
+    # With C<no Carp::Assert> the assert() has no impact.
+    for (1..100) {
+        assert( do_some_really_time_consuming_check ) if DEBUG;
+    }
+
+If C<if DEBUG> gets too annoying, you can always use affirm().
+
+    # Once again, affirm() has (almost) no impact with C<no Carp::Assert>
+    for (1..100) {
+        affirm { do_some_really_time_consuming_check };
+    }
 
 Another way to switch off all asserts, system wide, is to define the
 NDEBUG or the PERL_NDEBUG environment variable.
 
-You can safely leave out the "if DEBUG" part, but then your assert() function
-will always execute (and its arguments evaluated).  Oh well.
+You can safely leave out the "if DEBUG" part, but then your assert()
+function will always execute (and its arguments evaluated and time
+spent).  To get around this, use affirm().  You still have the
+overhead of calling a function but at least its arguments will not be
+evaluated.
 
 
 =head1 Differences from ANSI C
@@ -304,6 +413,26 @@ can't do C<assert('$a == $b')> because $a and $b will probably be
 lexical, and thus unavailable to assert().  But with Perl, unlike C,
 you always have the source to look through, so the need isn't as
 great.
+
+
+=head1 EFFICIENCY
+
+With C<no Carp::Assert> (or NDEBUG) and using the C<if DEBUG> suffixes
+on all your assertions, Carp::Assert has almost no impact on your
+production code.  I say almost because it does still add some load-time
+to your code (I've tried to reduce this as much as possible).
+
+If you forget the C<if DEBUG> on an C<assert()>, C<should()> or
+C<shouldnt()>, its arguments are still evaluated and thus will impact
+your code.  You'll also have the extra overhead of calling a
+subroutine (even if that subroutine does nothing).
+
+Forgetting the C<if DEBUG> on an C<affirm()> is not so bad.  While you
+still have the overhead of calling a subroutine (one that does
+nothing) it will B<not> evaluate its code block and that can save
+alot.
+
+Try to remember the B<if DEBUG>.
 
 
 =head1 ENVIRONMENT
@@ -330,12 +459,13 @@ working on at the same time.
 Someday, Perl will have an inline pragma, and the C<if DEBUG>
 bletcherousness will go away.
 
-I really need to figure a way to get it to return the given statement
-in the assertion.  should() and shouldnt() is a start.  Maybe
-B::Deparse... would assert({$this eq $that}) be too annoying?
+affirm() mucks with the expression's caller and it is run in an eval
+so anything that checks $^S will be wrong.
 
 Yes, there is a C<shouldn't> routine.  It mostly works, but you B<must>
 put the C<if DEBUG> after it.
+
+It would be nice if we could warn about missing C<if DEBUG>.
 
 
 =head1 AUTHOR
@@ -344,4 +474,4 @@ Michael G Schwern <schwern@pobox.com>
 
 =cut
 
-1;
+return q|You don't just EAT the largest turnip in the world!|;
