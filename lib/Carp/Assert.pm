@@ -8,7 +8,7 @@ use Exporter;
 use vars qw(@ISA $VERSION %EXPORT_TAGS);
 
 BEGIN {
-    $VERSION = '0.17';
+    $VERSION = '0.18';
 
     @ISA = qw(Exporter);
 
@@ -156,7 +156,7 @@ ok( !eval{ my_sqrt(-1); 1 },   '  and pukes on bad' );
 The assertion will warn you if a negative number was handed to your
 subroutine, a reality the routine has no intention of dealing with.
 
-An assertion should also be used a something of a reality check, to
+An assertion should also be used as something of a reality check, to
 make sure what your code just did really did happen:
 
     open(FILE, $filename) || die $!;
@@ -174,7 +174,7 @@ printing anything.
 
 Since assertions are designed for debugging and will remove themelves
 from production code, your assertions should be carefully crafted so
-as to not have any side-effects, change any variables or otherwise
+as to not have any side-effects, change any variables, or otherwise
 have any effect on your program.  Here is an example of a bad
 assertation:
 
@@ -296,19 +296,36 @@ statements into one.
 
 =for example end
 
+=for testing
+my $foo = 1;  my $bar = 2;
+eval { affirm { $foo == $bar } };
+like( $@, '/\$foo == \$bar/' );
+
+
 affirm() also has the nice side effect that if you forgot the C<if DEBUG>
 suffix its arguments will not be evaluated at all.  This can be nice
 if you stick affirm()s with expensive checks into hot loops and other
 time-sensitive parts of your program.
+
+If the $name is left off and your Perl version is 5.6 or higher the
+affirm() diagnostics will include the code begin affirmed.
 
 =cut
 
 sub affirm (&;$) {
     unless( eval { &{$_[0]}; } ) {
         my $name = $_[1];
-        if( !defined $name and eval { require B::Deparse } ) {
-            $name = B::Deparse->new->coderef2text($_[0]);
+
+        if( !defined $name ) {
+            eval {
+                require B::Deparse;
+                $name = B::Deparse->new->coderef2text($_[0]);
+            };
+            $name = 
+              'code display non-functional on this version of Perl, sorry'
+                if $@;
         }
+
         require Carp;
         Carp::confess( _fail_msg($name) );
     }
@@ -376,6 +393,7 @@ sub shouldn't ($$) {     # emacs cperl-mode madness #' sub {
     }
 }
 
+=back
 
 =head1 Debugging vs Production
 
@@ -420,7 +438,7 @@ evaluated.
 =head1 Differences from ANSI C
 
 assert() is intended to act like the function from ANSI C fame. 
-Unfortunately, due to perl's lack of macros or strong inlining, it's not
+Unfortunately, due to Perl's lack of macros or strong inlining, it's not
 nearly as unobtrusive.
 
 Well, the obvious one is the "if DEBUG" part.  This is cleanest way I could
@@ -486,6 +504,16 @@ Yes, there is a C<shouldn't> routine.  It mostly works, but you B<must>
 put the C<if DEBUG> after it.
 
 It would be nice if we could warn about missing C<if DEBUG>.
+
+
+=head1 COPYRIGHT
+
+Copyright 2002 by Michael G Schwern E<lt>schwern@pobox.comE<gt>.
+
+This program is free software; you can redistribute it and/or 
+modify it under the same terms as Perl itself.
+
+See F<http://www.perl.com/perl/misc/Artistic.html>
 
 
 =head1 AUTHOR
