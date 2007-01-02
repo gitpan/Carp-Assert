@@ -1,17 +1,17 @@
-#!perl -w
+#!/usr/local/perl/5.8.8/bin/perl -w
 
 use Test::More 'no_plan';
 
 package Catch;
 
 sub TIEHANDLE {
-    my($class, $var) = @_;
-    return bless { var => $var }, $class;
+	my($class, $var) = @_;
+	return bless { var => $var }, $class;
 }
 
 sub PRINT  {
-    my($self) = shift;
-    ${'main::'.$self->{var}} .= join '', @_;
+	my($self) = shift;
+	${'main::'.$self->{var}} .= join '', @_;
 }
 
 sub OPEN  {}    # XXX Hackery in case the user redirects
