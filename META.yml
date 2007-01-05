@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Carp-Assert
-version:             0.19
+version:             0.20
 abstract:            ~
 license:             ~
 generated_by:        ExtUtils::MakeMaker version 6.31

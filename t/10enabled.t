@@ -1,47 +1,52 @@
-#!/usr/bin/perl
-
-
-use strict;
+#!/usr/bin/perl -w
 
 # Test with assert on.
 
-$| = 1;
-print "1..8\n";
-my $t_num = 1;
+use strict;
+use Test::More tests => 8;
 
-local $@;
-$@ = '';
+# Make sure we're shielded against the user possibly having
+# NDEBUG or PERL_NDEBUG set.  Localize the changes because changes
+# to %ENV persist across processes in VMS.
+BEGIN {
+    local %ENV = %ENV;
+    delete @ENV{qw(PERL_NDEBUG NDEBUG)};
+    require Carp::Assert;
+    Carp::Assert->import;
+}
 
-use Carp::Assert;
+# shouldn't makes its decision at run-time
+local %ENV = %ENV;
+delete @ENV{qw(PERL_NDEBUG NDEBUG)};
+
+
 eval { assert(1==0) if DEBUG; };
-print "not " if($@ eq '' || $@ !~ /^Assertion failed/i);
-print "ok ".$t_num++."\n";
+like $@, '/^Assertion failed/i';
 
-$@ = '';
+
 eval { assert(1==1); };
-print "not " if $@ ne '';
-print "ok ".$t_num++."\n";
+is $@, '';
+
 
 eval { assert(Dogs->isa('People'), 'Dogs are people, too!') };
-print "not " unless $@ =~ /Dogs are people, too!/;
-print "ok ".$t_num++."\n";
+like $@, '/Dogs are people, too!/';
+
 
 eval { should('this', 'this') };
-print "not " if $@ ne '';
-print "ok ".$t_num++."\n";
+is $@, '';
+
 
 eval { should('this', 'that') };
-print "not " if $@ !~ /^Assertion \(.*\) failed/i;
-print "ok ".$t_num++."\n";
+like $@, '/^Assertion \(.*\) failed/i';
+
 
 eval { shouldnt('this', 'that') };
-print "not " if $@ ne '';
-print "ok ".$t_num++."\n";
+is $@, '';
+
 
 eval { shouldnt('up', 'up') };
-print "not " if $@ !~ /^Assertion \(.*\) failed/i;
-print "ok ".$t_num++."\n";
+like $@, '/^Assertion \(.*\) failed/i';
+
 
 eval { shouldn't('up', 'up') };
-print "not " if $@ !~ /^Assertion \(.*\) failed/i;
-print "ok ".$t_num++."\n";
+like $@, '/^Assertion \(.*\) failed/i';

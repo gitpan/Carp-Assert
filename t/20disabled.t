@@ -1,33 +1,44 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
+
+# Test with assert off.
 
 
 use strict;
+use Test::More tests => 25;
 
-# Test with assert on.
-
-$| = 1;
-print "1..4\n";
-my $t_num = 1;
-
-local $@;
-$@ = '';
 
 use Carp::Assert qw(:NDEBUG);
+
+
+my $tests = <<'END_OF_TESTS';
 eval { assert(1==0) if DEBUG; };
-print "not " if $@;
-print "ok ",$t_num++,"\n";
+is $@, '';
 
-$@ = '';
+
 eval { assert(1==0); };
-print "not " if $@;
-print "ok ",$t_num++,"\n";
+is $@, '';
 
-$@ = '';
+
 eval { should('this', 'moofer') if DEBUG };
-print "not " if $@ ne '';
-print "ok ".$t_num++."\n";
+is $@, '';
 
-$@ = '';
+
 eval { shouldnt('this', 'this') };
-print "not " if $@ ne '';
-print "ok ".$t_num++."\n";
+is $@, '';
+END_OF_TESTS
+
+
+my @disable_code = (
+    "use Carp::Assert qw(:NDEBUG);",
+    "no Carp::Assert;",
+    'BEGIN { $ENV{NDEBUG} = 1; }  use Carp::Assert;',
+    'BEGIN { $ENV{PERL_NDEBUG} = 1; }  use Carp::Assert;',
+    'BEGIN { $ENV{NDEBUG} = 0;  $ENV{PERL_NDEBUG} = 1; } use Carp::Assert;'
+);
+
+for my $code (@disable_code) {
+    local %ENV = %ENV;
+    delete @ENV{qw(PERL_NDEBUG NDEBUG)};
+    eval $code . "\n" . $tests;
+    is $@, '';
+}
