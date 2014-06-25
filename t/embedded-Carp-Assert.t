@@ -1,4 +1,4 @@
-#!/usr/local/perl/5.8.8/bin/perl -w
+#!/usr/local/bin/perl -w
 
 use Test::More 'no_plan';
 
@@ -54,7 +54,7 @@ delete @ENV{qw(PERL_NDEBUG NDEBUG)};
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 217 lib/Carp/Assert.pm
+#line 218 lib/Carp/Assert.pm
 my $life = 'Whimper!';
 ok( eval { assert( $life =~ /!$/ ); 1 },   'life ends with a bang' );
 
@@ -65,7 +65,7 @@ ok( eval { assert( $life =~ /!$/ ); 1 },   'life ends with a bang' );
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 237 lib/Carp/Assert.pm
+#line 238 lib/Carp/Assert.pm
 {
   package Some::Other;
   no Carp::Assert;
@@ -79,7 +79,7 @@ ok( eval { assert( $life =~ /!$/ ); 1 },   'life ends with a bang' );
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 248 lib/Carp/Assert.pm
+#line 249 lib/Carp/Assert.pm
 ok( eval { assert(1); 1 } );
 ok( !eval { assert(0); 1 } );
 
@@ -90,7 +90,7 @@ ok( !eval { assert(0); 1 } );
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 258 lib/Carp/Assert.pm
+#line 259 lib/Carp/Assert.pm
 eval { assert(0) };
 like( $@, '/^Assertion failed!/',       'error format' );
 like( $@, '/Carp::Assert::assert\(0\) called at/',      '  with stack trace' );
@@ -102,7 +102,7 @@ like( $@, '/Carp::Assert::assert\(0\) called at/',      '  with stack trace' );
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 273 lib/Carp/Assert.pm
+#line 274 lib/Carp/Assert.pm
 eval { assert( Dogs->isa('People'), 'Dogs are people, too!' ); };
 like( $@, '/^Assertion \(Dogs are people, too!\) failed!/', 'names' );
 
@@ -113,7 +113,7 @@ like( $@, '/^Assertion \(Dogs are people, too!\) failed!/', 'names' );
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 310 lib/Carp/Assert.pm
+#line 311 lib/Carp/Assert.pm
 my $foo = 1;  my $bar = 2;
 eval { affirm { $foo == $bar } };
 like( $@, '/\$foo == \$bar/' );
@@ -128,7 +128,7 @@ eval q{
   my $example = sub {
     local $^W = 0;
 
-#line 149 lib/Carp/Assert.pm
+#line 150 lib/Carp/Assert.pm
 
     # Take the square root of a number.
     sub my_sqrt {
@@ -147,12 +147,12 @@ eval q{
 
   }
 };
-is($@, '', "example from line 149");
+is($@, '', "example from line 150");
 
 {
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
-#line 149 lib/Carp/Assert.pm
+#line 150 lib/Carp/Assert.pm
 
     # Take the square root of a number.
     sub my_sqrt {
@@ -183,7 +183,7 @@ eval q{
   my $example = sub {
     local $^W = 0;
 
-#line 300 lib/Carp/Assert.pm
+#line 301 lib/Carp/Assert.pm
 
     affirm {
         my $customer = Customer->new($customerid);
@@ -195,7 +195,7 @@ eval q{
 
   }
 };
-is($@, '', "example from line 300");
+is($@, '', "example from line 301");
 
     undef $main::_STDOUT_;
     undef $main::_STDERR_;
